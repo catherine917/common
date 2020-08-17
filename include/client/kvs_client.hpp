@@ -34,7 +34,7 @@ class KvsClientInterface {
   virtual string put_async(const Key& key, const string& payload,
                            LatticeType lattice_type) = 0;
   virtual void get_async(const Key& key) = 0;
-  virtual vector<KeyResponse> receive_async() = 0;
+  virtual vector<KeyResponse> receive_async(unsigned long *counters) = 0;
   virtual zmq::context_t* get_context() = 0;
 };
 
@@ -112,16 +112,18 @@ class KvsClient : public KvsClientInterface {
     }
   }
 
-  vector<KeyResponse> receive_async() {
+  vector<KeyResponse> receive_async(unsigned long *counters) {
     vector<KeyResponse> result;
     kZmqUtil->poll(0, &pollitems_);
 
     if (pollitems_[0].revents & ZMQ_POLLIN) {
+      counters[1]++;
+      
       string serialized = kZmqUtil->recv_string(&key_address_puller_);
       KeyAddressResponse response;
       response.ParseFromString(serialized);
       Key key = response.addresses(0).key();
-
+      // log_->info("key_address_puller key is {}", key);
       if (pending_request_map_.find(key) != pending_request_map_.end()) {
         if (response.error() == AnnaError::NO_SERVERS) {
           log_->error(
@@ -147,11 +149,12 @@ class KvsClient : public KvsClientInterface {
     }
 
     if (pollitems_[1].revents & ZMQ_POLLIN) {
+      counters[2]++;
       string serialized = kZmqUtil->recv_string(&response_puller_);
       KeyResponse response;
       response.ParseFromString(serialized);
       Key key = response.tuples(0).key();
-
+      log_->info("response_puller key is {}", key);
       if (response.type() == RequestType::GET) {
         if (pending_get_response_map_.find(key) !=
             pending_get_response_map_.end()) {
@@ -289,11 +292,11 @@ class KvsClient : public KvsClientInterface {
     // tier timed out, which should never happen.
     Key key = request.tuples(0).key();
     Address worker = get_worker_thread(key);
-    // if (request.type() == RequestType::GET) {
-    //   log_->info("GET request address is {}", worker);
-    // } else {
-    //   log_->info("PUT request address is {}", worker);
-    // }
+    if (request.type() == RequestType::GET) {
+      log_->info("GET request address is {}", worker);
+    } else {
+      log_->info("PUT request address is {}", worker);
+    }
     if (worker.length() == 0) {
       // this means a key addr request is issued asynchronously
       if (pending_request_map_.find(key) == pending_request_map_.end()) {
