@@ -154,7 +154,7 @@ class KvsClient : public KvsClientInterface {
       KeyResponse response;
       response.ParseFromString(serialized);
       Key key = response.tuples(0).key();
-      log_->info("response_puller key is {}", key);
+      // log_->info("response_puller key is {}", key);
       if (response.type() == RequestType::GET) {
         if (pending_get_response_map_.find(key) !=
             pending_get_response_map_.end()) {
