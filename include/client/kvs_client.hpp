@@ -35,7 +35,7 @@ class KvsClientInterface {
                            LatticeType lattice_type) = 0;
   virtual void get_async(const Key& key) = 0;
   virtual vector<KeyResponse> receive_async(unsigned long *counters) = 0;
-  virtual vector<keyResponse> receive_key_addr() = 0;
+  virtual vector<KeyResponse> receive_key_addr() = 0;
   virtual zmq::context_t* get_context() = 0;
 };
 
