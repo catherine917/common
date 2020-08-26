@@ -35,6 +35,7 @@ class KvsClientInterface {
                            LatticeType lattice_type) = 0;
   virtual void get_async(const Key& key) = 0;
   virtual vector<KeyResponse> receive_async(unsigned long *counters) = 0;
+  virtual vector<keyResponse> receive_key_addr() = 0;
   virtual zmq::context_t* get_context() = 0;
 };
 
@@ -257,6 +258,58 @@ class KvsClient : public KvsClientInterface {
     return result;
   }
 
+  vector<KeyResponse> receive_key_addr() {
+    vector<KeyResponse> result;
+    kZmqUtil->poll(0, &pollitems_);
+    if (pollitems_[0].revents & ZMQ_POLLIN) {
+      string serialized = kZmqUtil->recv_string(&key_address_puller_);
+      KeyAddressResponse response;
+      response.ParseFromString(serialized);
+      Key key = response.addresses(0).key();
+      // log_->info("key_address_puller key is {}", key);
+      if (pending_request_map_.find(key) != pending_request_map_.end()) {
+        if (response.error() == AnnaError::NO_SERVERS) {
+          log_->error(
+              "No servers have joined the cluster yet. Retrying request.");
+          pending_request_map_[key].first = std::chrono::system_clock::now();
+
+          query_routing_async(key);
+        } else {
+          // populate cache
+          for (const Address& ip : response.addresses(0).ips()) {
+            key_address_cache_[key].insert(ip);
+          }
+
+          // handle stuff in pending request map
+          for (auto& req : pending_request_map_[key].second) {
+            try_request(req);
+          }
+
+          // GC the pending request map
+          pending_request_map_.erase(key);
+        }
+      }
+    }
+    // GC the pending request map
+    set<Key> to_remove;
+    for (const auto& pair : pending_request_map_) {
+      if (std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::system_clock::now() - pair.second.first)
+              .count() > timeout_) {
+        // query to the routing tier timed out
+        for (const auto& req : pair.second.second) {
+          result.push_back(generate_bad_response(req));
+        }
+
+        to_remove.insert(pair.first);
+      }
+    }
+
+    for (const Key& key : to_remove) {
+      pending_request_map_.erase(key);
+    }
+    return result;
+  }
   /**
    * Set the logger used by the client.
    */
