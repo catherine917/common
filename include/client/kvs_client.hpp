@@ -35,7 +35,7 @@ class KvsClientInterface {
                            LatticeType lattice_type) = 0;
   virtual void get_async(const Key& key) = 0;
   virtual vector<KeyResponse> receive_async(unsigned long *counters) = 0;
-  virtual void receive_key_addr() = 0;
+  virtual int receive_key_addr(const Key& key) = 0;
   virtual zmq::context_t* get_context() = 0;
 };
 
@@ -258,16 +258,15 @@ class KvsClient : public KvsClientInterface {
     return result;
   }
 
-  void receive_key_addr() {
-    vector<KeyAddressResponse> result;
-    while(result.size() == 0) {
+   int receive_key_addr(const Key& key) {
+    if(key_addr_map_[key]) {
       kZmqUtil->poll(0, &pollitems_);
       if (pollitems_[0].revents & ZMQ_POLLIN) {
         string serialized = kZmqUtil->recv_string(&key_address_puller_);
         KeyAddressResponse response;
         response.ParseFromString(serialized);
         Key key = response.addresses(0).key();
-        log_->info("key_address_puller key is {}", response.addresses(0).key());
+        // log_->info("key_address_puller key is {}", response.addresses(0).key());
         if (pending_request_map_.find(key) != pending_request_map_.end()) {
           if (response.error() == AnnaError::NO_SERVERS) {
             log_->error(
@@ -277,10 +276,10 @@ class KvsClient : public KvsClientInterface {
             query_routing_async(key);
           } else {
             // populate cache
-            result.push_back(response);
             for (const Address& ip : response.addresses(0).ips()) {
-              log_->info("key_address_puller ip is {}", ip);
+              // log_->info("key_address_puller ip is {}", ip);
               key_address_cache_[key].insert(ip);
+              key_addr_map_[key] = false;
             }
 
             // handle stuff in pending request map
@@ -294,8 +293,10 @@ class KvsClient : public KvsClientInterface {
           }
         }
       }
+      return 0;
+    }else {
+      return 1;
     }
-
     // GC the pending request map
     // set<Key> to_remove;
     // for (const auto& pair : pending_request_map_) {
@@ -361,6 +362,7 @@ class KvsClient : public KvsClientInterface {
         pending_request_map_[key].first = std::chrono::system_clock::now();
       }
       pending_request_map_[key].second.push_back(request);
+      key_addr_map_[key] = true;
       return;
     }
 
@@ -481,6 +483,10 @@ class KvsClient : public KvsClientInterface {
         key_address_cache_[key].size() == 0) {
       if (pending_request_map_.find(key) == pending_request_map_.end()) {
         query_routing_async(key);
+        // vector<KeyAddressResponse> responses = receive_key_addr();
+        // while (responses.size() == 0) {
+        //   responses = receive_key_addr();
+        // }
       }
       return set<Address>();
     } else {
@@ -598,6 +604,9 @@ class KvsClient : public KvsClientInterface {
 
   // keeps track of pending put responses
   map<Key, map<string, PendingRequest>> pending_put_response_map_;
+
+  // keeps track of key and addr
+  map<Key, bool> key_addr_map_;
 };
 
 #endif  // INCLUDE_ASYNC_CLIENT_HPP_
