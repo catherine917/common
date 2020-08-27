@@ -259,11 +259,12 @@ class KvsClient : public KvsClientInterface {
   }
 
   void receive_key_addr() {
-    KeyAddressResponse response;
-    while(response.size() == 0) {
+    vector<KeyAddressResponse> result;
+    while(result.size() == 0) {
       kZmqUtil->poll(0, &pollitems_);
       if (pollitems_[0].revents & ZMQ_POLLIN) {
         string serialized = kZmqUtil->recv_string(&key_address_puller_);
+        KeyAddressResponse response;
         response.ParseFromString(serialized);
         Key key = response.addresses(0).key();
         log_->info("key_address_puller key is {}", response.addresses(0).key());
@@ -276,6 +277,7 @@ class KvsClient : public KvsClientInterface {
             query_routing_async(key);
           } else {
             // populate cache
+            result.push_back(response);
             for (const Address& ip : response.addresses(0).ips()) {
               log_->info("key_address_puller ip is {}", ip);
               key_address_cache_[key].insert(ip);
