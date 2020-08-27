@@ -266,7 +266,7 @@ class KvsClient : public KvsClientInterface {
       KeyAddressResponse response;
       response.ParseFromString(serialized);
       Key key = response.addresses(0).key();
-      // log_->info("key_address_puller key is {}", key);
+      log_->info("key_address_puller ips is {}", response.addresses(0).ips());
       if (pending_request_map_.find(key) != pending_request_map_.end()) {
         if (response.error() == AnnaError::NO_SERVERS) {
           log_->error(
