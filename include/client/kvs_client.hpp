@@ -36,6 +36,7 @@ class KvsClientInterface {
   virtual void get_async(const Key& key) = 0;
   virtual vector<KeyResponse> receive_async(unsigned long *counters) = 0;
   virtual int receive_key_addr(const Key& key) = 0;
+  virtual vector<KeyResponse> receive_rep() = 0;
   virtual zmq::context_t* get_context() = 0;
 };
 
@@ -257,7 +258,8 @@ class KvsClient : public KvsClientInterface {
 
     return result;
   }
-
+   
+   // receive key address
    int receive_key_addr(const Key& key) {
     if(key_addr_map_[key]) {
       kZmqUtil->poll(0, &pollitems_);
@@ -315,6 +317,120 @@ class KvsClient : public KvsClientInterface {
     // for (const Key& key : to_remove) {
     //   pending_request_map_.erase(key);
     // }
+  }
+  /**
+   * receive responses from kvs
+   * 
+   */
+  vector<KeyResponse> receive_rep() {
+    vector<KeyResponse> result;
+    kZmqUtil->poll(0, &pollitems_);
+
+    if (pollitems_[1].revents & ZMQ_POLLIN) {
+      string serialized = kZmqUtil->recv_string(&response_puller_);
+      KeyResponse response;
+      response.ParseFromString(serialized);
+      Key key = response.tuples(0).key();
+      if (response.type() == RequestType::GET) {
+        if (pending_get_response_map_.find(key) !=
+            pending_get_response_map_.end()) {
+          if (check_tuple(response.tuples(0))) {
+            // error no == 2, so re-issue request
+            pending_get_response_map_[key].tp_ =
+                std::chrono::system_clock::now();
+
+            try_request(pending_get_response_map_[key].request_);
+          } else {
+            // error no == 0 or 1
+            result.push_back(response);
+            pending_get_response_map_.erase(key);
+          }
+        }
+      } else {
+        if (pending_put_response_map_.find(key) !=
+                pending_put_response_map_.end() &&
+            pending_put_response_map_[key].find(response.response_id()) !=
+                pending_put_response_map_[key].end()) {
+          if (check_tuple(response.tuples(0))) {
+            // error no == 2, so re-issue request
+            pending_put_response_map_[key][response.response_id()].tp_ =
+                std::chrono::system_clock::now();
+
+            try_request(pending_put_response_map_[key][response.response_id()]
+                            .request_);
+          } else {
+            // error no == 0
+            result.push_back(response);
+            pending_put_response_map_[key].erase(response.response_id());
+
+            if (pending_put_response_map_[key].size() == 0) {
+              pending_put_response_map_.erase(key);
+            }
+          }
+        }
+      }
+    }
+
+    // GC the pending request map
+    set<Key> to_remove;
+    for (const auto& pair : pending_request_map_) {
+      if (std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::system_clock::now() - pair.second.first)
+              .count() > timeout_) {
+        // query to the routing tier timed out
+        for (const auto& req : pair.second.second) {
+          result.push_back(generate_bad_response(req));
+        }
+
+        to_remove.insert(pair.first);
+      }
+    }
+
+    for (const Key& key : to_remove) {
+      pending_request_map_.erase(key);
+    }
+
+    // GC the pending get response map
+    to_remove.clear();
+    for (const auto& pair : pending_get_response_map_) {
+      if (std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::system_clock::now() - pair.second.tp_)
+              .count() > timeout_) {
+        // query to server timed out
+        result.push_back(generate_bad_response(pair.second.request_));
+        to_remove.insert(pair.first);
+        invalidate_cache_for_worker(pair.second.worker_addr_);
+      }
+    }
+
+    for (const Key& key : to_remove) {
+      pending_get_response_map_.erase(key);
+    }
+
+    // GC the pending put response map
+    map<Key, set<string>> to_remove_put;
+    for (const auto& key_map_pair : pending_put_response_map_) {
+      for (const auto& id_map_pair :
+           pending_put_response_map_[key_map_pair.first]) {
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now() -
+                pending_put_response_map_[key_map_pair.first][id_map_pair.first]
+                    .tp_)
+                .count() > timeout_) {
+          result.push_back(generate_bad_response(id_map_pair.second.request_));
+          to_remove_put[key_map_pair.first].insert(id_map_pair.first);
+          invalidate_cache_for_worker(id_map_pair.second.worker_addr_);
+        }
+      }
+    }
+
+    for (const auto& key_set_pair : to_remove_put) {
+      for (const auto& id : key_set_pair.second) {
+        pending_put_response_map_[key_set_pair.first].erase(id);
+      }
+    }
+
+    return result;
   }
   /**
    * Set the logger used by the client.
