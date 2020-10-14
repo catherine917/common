@@ -262,7 +262,7 @@ class KvsClient : public KvsClientInterface {
    // receive key address
    int receive_key_addr(const Key& key) {
     vector<KeyResponse> result;
-    unsigned res = 0;
+    int res = 0;
     if(key_addr_map_[key]) {
       kZmqUtil->poll(0, &pollitems_);
       if (pollitems_[0].revents & ZMQ_POLLIN) {
