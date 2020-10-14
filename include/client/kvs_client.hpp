@@ -261,6 +261,8 @@ class KvsClient : public KvsClientInterface {
    
    // receive key address
    int receive_key_addr(const Key& key) {
+    int res = 0;
+    vector<KeyResponse> result;
     if(key_addr_map_[key]) {
       kZmqUtil->poll(0, &pollitems_);
       if (pollitems_[0].revents & ZMQ_POLLIN) {
@@ -295,10 +297,28 @@ class KvsClient : public KvsClientInterface {
           }
         }
       }
-      return 0;
     }else {
-      return 1;
+      res = 1;
     }
+    // GC the pending request map
+    set<Key> to_remove;
+    for (const auto& pair : pending_request_map_) {
+      if (std::chrono::duration_cast<std::chrono::milliseconds>(
+              std::chrono::system_clock::now() - pair.second.first)
+              .count() > timeout_) {
+        // query to the routing tier timed out
+        for (const auto& req : pair.second.second) {
+          result.push_back(generate_bad_response(req));
+        }
+
+        to_remove.insert(pair.first);
+      }
+    }
+
+    for (const Key& key : to_remove) {
+      pending_request_map_.erase(key);
+    }
+    return res;
   }
   /**
    * receive responses from kvs
@@ -353,27 +373,8 @@ class KvsClient : public KvsClientInterface {
       }
     }
 
-    // GC the pending request map
-    set<Key> to_remove;
-    for (const auto& pair : pending_request_map_) {
-      if (std::chrono::duration_cast<std::chrono::milliseconds>(
-              std::chrono::system_clock::now() - pair.second.first)
-              .count() > timeout_) {
-        // query to the routing tier timed out
-        for (const auto& req : pair.second.second) {
-          result.push_back(generate_bad_response(req));
-        }
-
-        to_remove.insert(pair.first);
-      }
-    }
-
-    for (const Key& key : to_remove) {
-      pending_request_map_.erase(key);
-    }
-
     // GC the pending get response map
-    to_remove.clear();
+    set<Key> to_remove;
     for (const auto& pair : pending_get_response_map_) {
       if (std::chrono::duration_cast<std::chrono::milliseconds>(
               std::chrono::system_clock::now() - pair.second.tp_)
