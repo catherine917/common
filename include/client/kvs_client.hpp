@@ -373,7 +373,7 @@ class KvsClient : public KvsClientInterface {
     }
 
     // GC the pending request map
-    // set<Key> to_remove;
+    set<Key> to_remove;
     // for (const auto& pair : pending_request_map_) {
     //   if (std::chrono::duration_cast<std::chrono::milliseconds>(
     //           std::chrono::system_clock::now() - pair.second.first)
