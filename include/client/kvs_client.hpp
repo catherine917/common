@@ -36,7 +36,7 @@ class KvsClientInterface {
   virtual void get_async(const Key& key) = 0;
   virtual vector<KeyResponse> receive_async(unsigned long *counters) = 0;
   virtual int receive_key_addr(const Key& key) = 0;
-  virtual vector<KeyResponse> receive_rep() = 0;
+  virtual void receive_rep(unsigned long *counters) = 0;
   virtual zmq::context_t* get_context() = 0;
 };
 
@@ -104,14 +104,14 @@ class KvsClient : public KvsClientInterface {
    */
   void get_async(const Key& key) {
     // we issue GET only when it is not in the pending map
-    // if (pending_get_response_map_.find(key) ==
-    //     pending_get_response_map_.end()) {
+    if (pending_get_response_map_.find(key) ==
+        pending_get_response_map_.end()) {
       KeyRequest request;
       prepare_data_request(request, key);
       request.set_type(RequestType::GET);
       // log_->info("Send GET request");
       try_request(request);
-    // }
+    }
   }
 
   vector<KeyResponse> receive_async(unsigned long *counters) {
@@ -323,7 +323,7 @@ class KvsClient : public KvsClientInterface {
    * receive responses from kvs
    * 
    */
-  vector<KeyResponse> receive_rep() {
+  void receive_rep(unsigned long *counters) {
     vector<KeyResponse> result;
     kZmqUtil->poll(0, &pollitems_);
 
@@ -333,8 +333,8 @@ class KvsClient : public KvsClientInterface {
       response.ParseFromString(serialized);
       Key key = response.tuples(0).key();
       if (response.type() == RequestType::GET) {
-        // if (pending_get_response_map_.find(key) !=
-        //     pending_get_response_map_.end()) {
+        if (pending_get_response_map_.find(key) !=
+            pending_get_response_map_.end()) {
           if (check_tuple(response.tuples(0))) {
             // error no == 2, so re-issue request
             pending_get_response_map_[key].tp_ =
@@ -348,7 +348,7 @@ class KvsClient : public KvsClientInterface {
             // log_->info("GET response id is {}", response.response_id());
             pending_get_response_map_.erase(key);
           }
-        // }
+        }
       } else {
         if (pending_put_response_map_.find(key) !=
                 pending_put_response_map_.end() &&
@@ -414,8 +414,11 @@ class KvsClient : public KvsClientInterface {
         pending_put_response_map_[key_set_pair.first].erase(id);
       }
     }
-
-    return result;
+    // log_->info("pending get request is {}", pending_get_response_map_.size());
+    // log_->info("pending put request is {}", pending_put_response_map_.size());
+    counters[4] = pending_get_response_map_.size(); // pending map size
+    counters[5] = pending_put_response_map_.size();
+    counters[3] += result.size(); //total responses count
   }
   /**
    * Set the logger used by the client.
