@@ -35,7 +35,7 @@ class KvsClientInterface {
                            LatticeType lattice_type) = 0;
   virtual void get_async(const Key& key) = 0;
   virtual vector<KeyResponse> receive_async(unsigned long *counters) = 0;
-  virtual int receive_key_addr(const Key& key) = 0;
+  virtual int receive_key_addr(const Key& key, unsigned long *counters) = 0;
   virtual void receive_rep(unsigned long *counters) = 0;
   virtual zmq::context_t* get_context() = 0;
 };
@@ -259,12 +259,13 @@ class KvsClient : public KvsClientInterface {
   }
    
    // receive key address
-   int receive_key_addr(const Key& key) {
+   int receive_key_addr(const Key& key, unsigned long *counters) {
     int res = 0;
     vector<KeyResponse> result;
     if(key_addr_map_[key]) {
       kZmqUtil->poll(0, &pollitems_);
       if (pollitems_[0].revents & ZMQ_POLLIN) {
+        counters[1]++;
         string serialized = kZmqUtil->recv_string(&key_address_puller_);
         KeyAddressResponse response;
         response.ParseFromString(serialized);
@@ -328,6 +329,7 @@ class KvsClient : public KvsClientInterface {
     kZmqUtil->poll(0, &pollitems_);
 
     if (pollitems_[1].revents & ZMQ_POLLIN) {
+      counters[2]++;
       string serialized = kZmqUtil->recv_string(&response_puller_);
       KeyResponse response;
       response.ParseFromString(serialized);
