@@ -68,7 +68,7 @@ inline void set_footprint_info(Footprint* footprint, const string& ip_address,
 }
 
 // copy footprints from request to response
-inline void copy_footprints(KeyRequest& request, KeyResponse& response) {
+inline void copy_footprints(const KeyRequest& request, KeyResponse& response) {
   for (int i = 0; i < request.footprints_size(); i++) {
     Footprint* footprint = response.add_footprints();
     auto req_footprint = request.footprints(i);
@@ -80,7 +80,7 @@ inline void copy_footprints(KeyRequest& request, KeyResponse& response) {
 }
 
 // copy footprints from response to request
-inline void copy_footprints(KeyResponse& response, KeyRequest& request) {
+inline void copy_footprints(const KeyResponse& response, KeyRequest& request) {
   for (int i = 0; i < response.footprints_size(); i++) {
     Footprint* footprint = request.add_footprints();
     auto res_footprint = response.footprints(i);
