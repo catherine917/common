@@ -92,7 +92,7 @@ inline void copy_footprints(const KeyResponse& response, KeyRequest& request) {
 }
 
 inline string parse_footprints(const KeyResponse& response) {
-  string str_footprints = "";
+  string str_footprints = "request id: " + response.response_id() + " request type: " + response.type() + "\n";
   for (int i = 0; i < response.footprints_size(); i++) {
     auto footprint = response.footprints(i);
     str_footprints +=
