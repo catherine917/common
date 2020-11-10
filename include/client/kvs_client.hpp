@@ -94,7 +94,8 @@ class KvsClient : public KvsClientInterface {
     request.set_type(RequestType::PUT);
     tuple->set_lattice_type(lattice_type);
     tuple->set_payload(payload);
-
+    Footprint* footprint = request.add_footprints();
+    set_footprint_info(footprint, ut_.ip(), ut_.tid(), Action::CREAT);
     try_request(request);
     return request.request_id();
   }
@@ -109,7 +110,8 @@ class KvsClient : public KvsClientInterface {
       KeyRequest request;
       prepare_data_request(request, key);
       request.set_type(RequestType::GET);
-      // log_->info("Send GET request");
+      Footprint* footprint = request.add_footprints();
+      set_footprint_info(footprint, ut_.ip(), ut_.tid(), Action::CREAT);
       try_request(request);
     }
   }
@@ -154,6 +156,8 @@ class KvsClient : public KvsClientInterface {
       string serialized = kZmqUtil->recv_string(&response_puller_);
       KeyResponse response;
       response.ParseFromString(serialized);
+      Footprint* footprint = response.add_footprints();
+      set_footprint_info(footprint, ut_.ip(), ut_.tid(), Action::RECEIVE);
       Key key = response.tuples(0).key();
       // log_->info("response_puller key is {}", key);
       if (response.type() == RequestType::GET) {
@@ -163,7 +167,8 @@ class KvsClient : public KvsClientInterface {
             // error no == 2, so re-issue request
             pending_get_response_map_[key].tp_ =
                 std::chrono::system_clock::now();
-
+            pending_get_response_map_[key].request_.clear_footprints();
+            copy_footprints(response, pending_get_response_map_[key].request_);
             try_request(pending_get_response_map_[key].request_);
           } else {
             // error no == 0 or 1
@@ -180,7 +185,8 @@ class KvsClient : public KvsClientInterface {
             // error no == 2, so re-issue request
             pending_put_response_map_[key][response.response_id()].tp_ =
                 std::chrono::system_clock::now();
-
+            pending_put_response_map_[key][response.response_id()].request_.clear_footprints();
+            copy_footprints(response, pending_put_response_map_[key][response.response_id()].request_);
             try_request(pending_put_response_map_[key][response.response_id()]
                             .request_);
           } else {
@@ -475,6 +481,8 @@ class KvsClient : public KvsClientInterface {
     request.mutable_tuples(0)->set_address_cache_size(
         key_address_cache_[key].size());
 
+    Footprint* footprint = request.add_footprints();
+    set_footprint_info(footprint, ut_.ip(), ut_.tid(), Action::SEND);
     send_request<KeyRequest>(request, socket_cache_[worker]);
 
     if (request.type() == RequestType::GET) {
@@ -664,6 +672,10 @@ class KvsClient : public KvsClientInterface {
       tp->set_lattice_type(req.tuples(0).lattice_type());
       tp->set_payload(req.tuples(0).payload());
     }
+    copy_footprints((KeyRequest)req, resp);
+
+    Footprint* footprint = resp.add_footprints();
+    set_footprint_info(footprint, ut_.ip(), ut_.tid(), Action::GC);
 
     return resp;
   }

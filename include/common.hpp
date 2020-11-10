@@ -58,6 +58,62 @@ inline unsigned long long generate_timestamp(const unsigned& id) {
   return time * pow + id;
 }
 
+inline void set_footprint_info(Footprint* footprint, const string& ip_address,
+                               const unsigned& thread_id,
+                               const Action& action) {
+  footprint->set_ip_address(ip_address);
+  footprint->set_thread_id(thread_id);
+  footprint->set_timestamp(get_time());
+  footprint->set_action(action);
+}
+
+// copy footprints from request to response
+inline void copy_footprints(const KeyRequest& request, KeyResponse& response) {
+  for (int i = 0; i < request.footprints_size(); i++) {
+    Footprint* footprint = response.add_footprints();
+    auto req_footprint = request.footprints(i);
+    footprint->set_ip_address(req_footprint.ip_address());
+    footprint->set_thread_id(req_footprint.thread_id());
+    footprint->set_timestamp(req_footprint.timestamp());
+    footprint->set_action(req_footprint.action());
+  }
+}
+
+// copy footprints from response to request
+inline void copy_footprints(const KeyResponse& response, KeyRequest& request) {
+  for (int i = 0; i < response.footprints_size(); i++) {
+    Footprint* footprint = request.add_footprints();
+    auto res_footprint = response.footprints(i);
+    footprint->set_ip_address(res_footprint.ip_address());
+    footprint->set_thread_id(res_footprint.thread_id());
+    footprint->set_timestamp(res_footprint.timestamp());
+    footprint->set_action(res_footprint.action());
+  }
+}
+
+inline string parse_footprints(const KeyResponse& response) {
+  string str_footprints = "request id: " + response.response_id();
+  switch (response.type()) {
+    case RequestType::RT_UNSPECIFIED: str_footprints += " request type: unspecified\n"; break;
+    case RequestType::GET: str_footprints += " request type: get\n"; break;
+    case RequestType::PUT: str_footprints += " request type: put\n"; break;
+  }
+  for (int i = 0; i < response.footprints_size(); i++) {
+    auto footprint = response.footprints(i);
+    str_footprints +=
+        "server ip: " + footprint.ip_address() +
+        " thread id: " + std::to_string(footprint.thread_id()) +
+        " timestamp: " + std::to_string(footprint.timestamp());
+    switch (footprint.action()) {
+      case Action::CREAT: str_footprints += " action: creat\n"; break;
+      case Action::SEND: str_footprints += " action: send\n"; break;
+      case Action::RECEIVE: str_footprints += " action: receive\n"; break;
+      case Action::GC: str_footprints += " action: gc\n"; break;
+    }
+  }
+  return str_footprints;
+}
+
 // This version of the function should only be called with
 // certain types of MetadataType,
 // so if it's called with something else, we return

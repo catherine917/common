@@ -100,6 +100,20 @@ message KeyTuple {
   bool invalidate = 6;
 }
 
+enum Action {
+  CREAT = 0;
+  SEND = 1;
+  RECEIVE = 2;
+  GC = 3;
+}
+
+message Footprint {
+  string ip_address = 1;
+  uint32 thread_id = 2;
+  uint64 timestamp = 3;
+  Action action = 4;
+}
+
 // An individual GET or PUT request; each request can batch multiple keys.
 message KeyRequest {
   // The type of this request (see RequestType).
@@ -113,6 +127,8 @@ message KeyRequest {
 
   // A client-specific ID used to match asynchronous requests with responses.
   string request_id = 4;
+
+  repeated Footprint footprints = 5;
 }
 
 // A response to a KeyRequest. 
@@ -133,6 +149,8 @@ message KeyResponse {
   // captured in the corresponding KeyTuple. This will only be set if the whole
   // request times out.
   AnnaError error = 4;
+
+  repeated Footprint footprints = 5;
 }
 
 // A request to the routing tier to retrieve server addresses corresponding to
