@@ -36,7 +36,7 @@ class KvsClientInterface {
   virtual void get_async(const Key& key) = 0;
   virtual vector<KeyResponse> receive_async(unsigned long *counters) = 0;
   virtual int receive_key_addr(const Key& key, unsigned long *counters) = 0;
-  virtual void receive_rep(unsigned long *counters) = 0;
+  virtual vector<KeyResponse> receive_rep(unsigned long *counters) = 0;
   virtual zmq::context_t* get_context() = 0;
 };
 
