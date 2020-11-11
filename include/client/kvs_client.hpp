@@ -330,7 +330,7 @@ class KvsClient : public KvsClientInterface {
    * receive responses from kvs
    * 
    */
-  void receive_rep(unsigned long *counters) {
+  vector<KeyResponse> receive_rep(unsigned long *counters) {
     vector<KeyResponse> result;
     kZmqUtil->poll(0, &pollitems_);
 
@@ -427,6 +427,7 @@ class KvsClient : public KvsClientInterface {
     counters[4] = pending_get_response_map_.size(); // pending map size
     counters[5] = pending_put_response_map_.size();
     counters[3] += result.size(); //total responses count
+    return result;
   }
   /**
    * Set the logger used by the client.
