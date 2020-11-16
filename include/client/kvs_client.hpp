@@ -506,10 +506,10 @@ class KvsClient : public KvsClientInterface {
   bool check_tuple(const KeyTuple& tuple) {
     Key key = tuple.key();
     if (tuple.error() == 2) {
-      log_->info(
-          "Server ordered invalidation of key address cache for key {}. "
-          "Retrying request.",
-          key);
+      // log_->info(
+      //     "Server ordered invalidation of key address cache for key {}. "
+      //     "Retrying request.",
+      //     key);
 
       invalidate_cache_for_key(key, tuple);
       return true;
@@ -518,8 +518,8 @@ class KvsClient : public KvsClientInterface {
     if (tuple.invalidate()) {
       invalidate_cache_for_key(key, tuple);
 
-      log_->info("Server ordered invalidation of key address cache for key {}",
-                 key);
+      // log_->info("Server ordered invalidation of key address cache for key {}",
+      //            key);
     }
 
     return false;
