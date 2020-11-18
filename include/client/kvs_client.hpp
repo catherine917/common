@@ -105,15 +105,15 @@ class KvsClient : public KvsClientInterface {
    */
   void get_async(const Key& key) {
     // we issue GET only when it is not in the pending map
-    if (pending_get_response_map_.find(key) ==
-        pending_get_response_map_.end()) {
+    // if (pending_get_response_map_.find(key) ==
+    //     pending_get_response_map_.end()) {
       KeyRequest request;
       prepare_data_request(request, key);
       request.set_type(RequestType::GET);
       Footprint* footprint = request.add_footprints();
       set_footprint_info(footprint, ut_.ip(), ut_.tid(), Action::CREAT);
       try_request(request);
-    }
+    // }
   }
 
   vector<KeyResponse> receive_async(unsigned long *counters) {
@@ -175,7 +175,7 @@ class KvsClient : public KvsClientInterface {
             result.push_back(response);
             pending_get_response_map_.erase(key);
           }
-        }
+        // }
       } else {
         if (pending_put_response_map_.find(key) !=
                 pending_put_response_map_.end() &&
@@ -339,6 +339,8 @@ class KvsClient : public KvsClientInterface {
       string serialized = kZmqUtil->recv_string(&response_puller_);
       KeyResponse response;
       response.ParseFromString(serialized);
+      Footprint* footprint = response.add_footprints();
+      set_footprint_info(footprint, ut_.ip(), ut_.tid(), Action::RECEIVE);
       Key key = response.tuples(0).key();
       if (response.type() == RequestType::GET) {
         if (pending_get_response_map_.find(key) !=
@@ -347,7 +349,8 @@ class KvsClient : public KvsClientInterface {
             // error no == 2, so re-issue request
             pending_get_response_map_[key].tp_ =
                 std::chrono::system_clock::now();
-
+            pending_get_response_map_[key].request_.clear_footprints();
+            copy_footprints(response, pending_get_response_map_[key].request_);
             try_request(pending_get_response_map_[key].request_);
             log_->info("Re-issue GET request");
           } else {
@@ -366,13 +369,13 @@ class KvsClient : public KvsClientInterface {
             // error no == 2, so re-issue request
             pending_put_response_map_[key][response.response_id()].tp_ =
                 std::chrono::system_clock::now();
-
+            pending_put_response_map_[key][response.response_id()].request_.clear_footprints();
+            copy_footprints(response, pending_put_response_map_[key][response.response_id()].request_);
             try_request(pending_put_response_map_[key][response.response_id()]
                             .request_);
           } else {
             // error no == 0
             result.push_back(response);
-            // log_->info("PUT response id is {}", response.response_id());
             pending_put_response_map_[key].erase(response.response_id());
 
             if (pending_put_response_map_[key].size() == 0) {
@@ -422,8 +425,6 @@ class KvsClient : public KvsClientInterface {
         pending_put_response_map_[key_set_pair.first].erase(id);
       }
     }
-    // log_->info("pending get request is {}", pending_get_response_map_.size());
-    // log_->info("pending put request is {}", pending_put_response_map_.size());
     counters[4] = pending_get_response_map_.size(); // pending map size
     counters[5] = pending_put_response_map_.size();
     counters[3] += result.size(); //total responses count
@@ -487,11 +488,11 @@ class KvsClient : public KvsClientInterface {
     send_request<KeyRequest>(request, socket_cache_[worker]);
 
     if (request.type() == RequestType::GET) {
-      if (pending_get_response_map_.find(key) ==
-          pending_get_response_map_.end()) {
+      // if (pending_get_response_map_.find(key) ==
+      //     pending_get_response_map_.end()) {
         pending_get_response_map_[key].tp_ = std::chrono::system_clock::now();
         pending_get_response_map_[key].request_ = request;
-      }
+      // }
 
       pending_get_response_map_[key].worker_addr_ = worker;
     } else {
@@ -654,8 +655,8 @@ class KvsClient : public KvsClientInterface {
    * Generates a unique request ID.
    */
   string get_request_id() {
-    if (++rid_ % 10000 == 0) rid_ = 0;
-    return ut_.ip() + ":" + std::to_string(ut_.tid()) + "_" +
+    if (++rid_ % 100000 == 0) rid_ = 0;
+    return ut_.ip() + "_" + std::to_string(ut_.tid()) + "_" +
            std::to_string(rid_++);
   }
 
