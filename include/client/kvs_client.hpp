@@ -175,7 +175,7 @@ class KvsClient : public KvsClientInterface {
             result.push_back(response);
             pending_get_response_map_.erase(key);
           }
-        // }
+        }
       } else {
         if (pending_put_response_map_.find(key) !=
                 pending_put_response_map_.end() &&
