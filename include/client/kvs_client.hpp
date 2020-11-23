@@ -105,15 +105,15 @@ class KvsClient : public KvsClientInterface {
    */
   void get_async(const Key& key) {
     // we issue GET only when it is not in the pending map
-    // if (pending_get_response_map_.find(key) ==
-    //     pending_get_response_map_.end()) {
+    if (pending_get_response_map_.find(key) ==
+        pending_get_response_map_.end()) {
       KeyRequest request;
       prepare_data_request(request, key);
       request.set_type(RequestType::GET);
       Footprint* footprint = request.add_footprints();
       set_footprint_info(footprint, ut_.ip(), ut_.tid(), Action::CREAT);
       try_request(request);
-    // }
+    }
   }
 
   vector<KeyResponse> receive_async(unsigned long *counters) {
@@ -488,11 +488,11 @@ class KvsClient : public KvsClientInterface {
     send_request<KeyRequest>(request, socket_cache_[worker]);
 
     if (request.type() == RequestType::GET) {
-      // if (pending_get_response_map_.find(key) ==
-      //     pending_get_response_map_.end()) {
+      if (pending_get_response_map_.find(key) ==
+          pending_get_response_map_.end()) {
         pending_get_response_map_[key].tp_ = std::chrono::system_clock::now();
         pending_get_response_map_[key].request_ = request;
-      // }
+      }
 
       pending_get_response_map_[key].worker_addr_ = worker;
     } else {
