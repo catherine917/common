@@ -33,6 +33,7 @@ class ZmqUtilInterface {
   // `send` a string over the socket.
   virtual bool send_string(const string& s, zmq::socket_t* socket) = 0;
   // `recv` a string over the socket.
+  virtual string recv_string(zmq::socket_t* socket, logger log) = 0;
   virtual string recv_string(zmq::socket_t* socket) = 0;
   // `poll` is a wrapper around `zmq::poll` that takes a vector instead of a
   // pointer and a size.
@@ -42,6 +43,7 @@ class ZmqUtilInterface {
 class ZmqUtil : public ZmqUtilInterface {
  public:
   virtual bool send_string(const string& s, zmq::socket_t* socket);
+  virtual string recv_string(zmq::socket_t* socket, logger log);
   virtual string recv_string(zmq::socket_t* socket);
   virtual int poll(long timeout, vector<zmq::pollitem_t>* items);
 };

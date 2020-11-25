@@ -31,6 +31,15 @@ bool ZmqUtil::send_string(const string& s, zmq::socket_t* socket) {
   return socket->send(string_to_message(s));
 }
 
+string ZmqUtil::recv_string(zmq::socket_t* socket, logger log) {
+  zmq::message_t message;
+  bool success = socket->recv(&message);
+  if(!success) {
+    log->error("KVS receive message failed");
+  }
+  return message_to_string(message);
+}
+
 string ZmqUtil::recv_string(zmq::socket_t* socket) {
   zmq::message_t message;
   socket->recv(&message);
