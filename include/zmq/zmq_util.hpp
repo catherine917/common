@@ -41,7 +41,7 @@ class ZmqUtilInterface {
 
 class ZmqUtil : public ZmqUtilInterface {
  public:
-  virtual void send_string(const string& s, zmq::socket_t* socket);
+  virtual bool send_string(const string& s, zmq::socket_t* socket);
   virtual string recv_string(zmq::socket_t* socket);
   virtual int poll(long timeout, vector<zmq::pollitem_t>* items);
 };

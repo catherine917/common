@@ -27,8 +27,8 @@ zmq::message_t ZmqUtilInterface::string_to_message(const string& s) {
   return msg;
 }
 
-void ZmqUtil::send_string(const string& s, zmq::socket_t* socket) {
-  socket->send(string_to_message(s));
+bool ZmqUtil::send_string(const string& s, zmq::socket_t* socket) {
+  return socket->send(string_to_message(s));
 }
 
 string ZmqUtil::recv_string(zmq::socket_t* socket) {
