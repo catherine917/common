@@ -31,7 +31,7 @@ class ZmqUtilInterface {
   // Converts a string into a `zmq::message_t`.
   zmq::message_t string_to_message(const string& s);
   // `send` a string over the socket.
-  virtual void send_string(const string& s, zmq::socket_t* socket) = 0;
+  virtual bool send_string(const string& s, zmq::socket_t* socket) = 0;
   // `recv` a string over the socket.
   virtual string recv_string(zmq::socket_t* socket) = 0;
   // `poll` is a wrapper around `zmq::poll` that takes a vector instead of a
