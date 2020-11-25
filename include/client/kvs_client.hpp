@@ -485,8 +485,10 @@ class KvsClient : public KvsClientInterface {
 
     Footprint* footprint = request.add_footprints();
     set_footprint_info(footprint, ut_.ip(), ut_.tid(), Action::SEND);
-    send_request<KeyRequest>(request, socket_cache_[worker]);
-
+    bool success = send_request<KeyRequest>(request, socket_cache_[worker]);
+    if (!success) {
+      log_->error("send request fail, request id is: {}", request.request_id());
+    }
     if (request.type() == RequestType::GET) {
       if (pending_get_response_map_.find(key) ==
           pending_get_response_map_.end()) {

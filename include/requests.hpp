@@ -58,10 +58,10 @@ bool receive(zmq::socket_t& recv_socket, set<string>& request_ids,
 }
 
 template <typename REQ>
-void send_request(const REQ& request, zmq::socket_t& send_socket) {
+bool send_request(const REQ& request, zmq::socket_t& send_socket) {
   string serialized_req;
   request.SerializeToString(&serialized_req);
-  kZmqUtil->send_string(serialized_req, &send_socket);
+  return kZmqUtil->send_string(serialized_req, &send_socket);
 }
 
 // Synchronous combination of send and receive.
