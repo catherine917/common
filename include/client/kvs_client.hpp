@@ -490,11 +490,11 @@ class KvsClient : public KvsClientInterface {
       log_->error("send request fail, request id is: {}", request.request_id());
     }
     if (request.type() == RequestType::GET) {
-      if (pending_get_response_map_.find(key) ==
-          pending_get_response_map_.end()) {
+      // if (pending_get_response_map_.find(key) ==
+      //     pending_get_response_map_.end()) {
         pending_get_response_map_[key].tp_ = std::chrono::system_clock::now();
         pending_get_response_map_[key].request_ = request;
-      }
+      // }
 
       pending_get_response_map_[key].worker_addr_ = worker;
     } else {
