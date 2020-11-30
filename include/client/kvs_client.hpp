@@ -105,15 +105,15 @@ class KvsClient : public KvsClientInterface {
    */
   void get_async(const Key& key) {
     // we issue GET only when it is not in the pending map
-    if (pending_get_response_map_.find(key) ==
-        pending_get_response_map_.end()) {
+    // if (pending_get_response_map_.find(key) ==
+    //     pending_get_response_map_.end()) {
       KeyRequest request;
       prepare_data_request(request, key);
       request.set_type(RequestType::GET);
       Footprint* footprint = request.add_footprints();
       set_footprint_info(footprint, ut_.ip(), ut_.tid(), Action::CREAT);
       try_request(request);
-    }
+    // }
   }
 
   vector<KeyResponse> receive_async(unsigned long *counters) {
